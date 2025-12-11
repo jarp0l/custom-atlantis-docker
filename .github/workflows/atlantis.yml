@@ -118,7 +118,7 @@ jobs:
 
       - name: Generate job summary
         run: |
-          echo "##  ${{ matrix.variant.description }}" >> $GITHUB_STEP_SUMMARY
+          echo "##  ${{ matrix.variant.description }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Primary tag:**" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
