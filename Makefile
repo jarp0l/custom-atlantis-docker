@@ -269,7 +269,7 @@ ifneq ($(strip $(ADDITIONAL_TAGS)),)
 	@echo "✓ Additional tags: $(ADDITIONAL_TAGS)"
 endif
 
-push: login build
+push: $(if $(SKIP_LOGIN),,login) build
 	@echo "Pushing image: $(IMAGE_FULL)"
 	docker push $(IMAGE_FULL)
 ifneq ($(strip $(ADDITIONAL_TAGS)),)
@@ -293,7 +293,7 @@ ifneq ($(strip $(ADDITIONAL_TAGS)),)
 	@echo "✓ Additional tags: $(ADDITIONAL_TAGS)"
 endif
 
-push-multiarch: login
+push-multiarch: $(if $(SKIP_LOGIN),,login)
 	@echo "Building and pushing multi-arch image ($(BUILDX_PLATFORMS)): $(IMAGE_FULL) (target: $(BUILD_TARGET))"
 ifneq ($(strip $(ADDITIONAL_TAGS)),)
 	@echo "Additional tags: $(ADDITIONAL_TAGS)"

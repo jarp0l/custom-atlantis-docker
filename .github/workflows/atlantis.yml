@@ -4,11 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       TAG:
-        description: Custom tag (defaults to ATLANTIS_VERSION-git-sha)
+        description: "Custom tag (defaults to ATLANTIS_VERSION-git-sha)"
         required: false
         type: string
       ADDITIONAL_TAGS:
-        description: Space-separated additional tags (e.g. "stable v1")
+        description: 'Space-separated additional tags (e.g. "stable v1")'
         required: false
         type: string
 
@@ -108,6 +108,7 @@ jobs:
       - name: Build and push multi-arch image
         run: |
           make push-multiarch \
+            SKIP_LOGIN=1 \
             REGISTRY=ghcr \
             GITHUB_USER=${{ github.repository_owner }} \
             GITHUB_REPO=atlantis \
