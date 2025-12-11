@@ -8,8 +8,8 @@ ARG MINIDEB_TAG=trixie
 FROM bitnami/minideb:${MINIDEB_TAG} AS no-awscli
 
 # Metadata for base image
-LABEL org.opencontainers.image.title="Custom Atlantis (Alpine)" \
-    org.opencontainers.image.description="Lightweight Alpine-based Atlantis image with Terragrunt, OpenTofu, SOPS and Terragrunt Atlantis Config (no AWS CLI)." \
+LABEL org.opencontainers.image.title="Custom Atlantis" \
+    org.opencontainers.image.description="Custom Atlantis image with Terragrunt, OpenTofu, SOPS and Terragrunt Atlantis Config (no AWS CLI)." \
     org.opencontainers.image.licenses="MIT" \
     org.opencontainers.image.source="https://github.com/jarp0l/custom-atlantis-docker" \
     maintainer="Prajwol Pradhan (@jarp0l)"
