@@ -1,0 +1,161 @@
+name: Build and Push Atlantis Docker Images
+
+on:
+  workflow_dispatch:
+    inputs:
+      TAG:
+        description: 'Custom tag (defaults to ATLANTIS_VERSION-git-sha)'
+        required: false
+        type: string
+      ADDITIONAL_TAGS:
+        description: 'Space-separated additional tags (e.g. "stable v1")'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: atlantis-build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        variant:
+          - name: default
+            file: Dockerfile
+            target: no-awscli
+            tag_suffix: ""
+            built_in_tags: "latest"
+            description: "Debian-based (no AWS CLI)"
+
+          - name: awscli
+            file: Dockerfile
+            target: with-awscli
+            tag_suffix: "-awscli"
+            built_in_tags: "awscli"
+            description: "Debian-based (with AWS CLI)"
+
+          - name: alpine
+            file: Dockerfile.alpine
+            target: no-awscli
+            tag_suffix: "-alpine"
+            built_in_tags: "alpine"
+            description: "Alpine-based (no AWS CLI)"
+
+    name: Build ${{ matrix.variant.name }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute base tag
+        id: compute-tag
+        run: |
+          if [ -n "${{ inputs.TAG }}" ]; then
+            BASE_TAG="${{ inputs.TAG }}"
+          else
+            ATLANTIS_VERSION=$(grep '^ATLANTIS_VERSION' Makefile | cut -d'=' -f2)
+            GIT_SHA=$(git rev-parse --short=7 HEAD)
+            BASE_TAG="${ATLANTIS_VERSION}-${GIT_SHA}"
+          fi
+          echo "base_tag=${BASE_TAG}" >> $GITHUB_OUTPUT
+          echo "Base tag: ${BASE_TAG}"
+
+      - name: Prepare additional tags
+        id: prepare-tags
+        run: |
+          BUILT_IN="${{ matrix.variant.built_in_tags }}"
+          USER_TAGS="${{ inputs.ADDITIONAL_TAGS }}"
+
+          # Combine built-in and user tags
+          ALL_TAGS="${BUILT_IN}"
+          if [ -n "${USER_TAGS}" ]; then
+            ALL_TAGS="${ALL_TAGS} ${USER_TAGS}"
+          fi
+
+          # Deduplicate tags
+          UNIQUE_TAGS=$(echo "${ALL_TAGS}" | tr ' ' '\n' | sort -u | tr '\n' ' ' | xargs)
+
+          # Add suffix for non-default variants
+          SUFFIX="${{ matrix.variant.tag_suffix }}"
+          if [ -n "${SUFFIX}" ]; then
+            SUFFIXED_TAGS=""
+            for tag in ${UNIQUE_TAGS}; do
+              SUFFIXED_TAGS="${SUFFIXED_TAGS} ${tag}${SUFFIX}"
+            done
+            UNIQUE_TAGS=$(echo "${SUFFIXED_TAGS}" | xargs)
+          fi
+
+          echo "additional_tags=${UNIQUE_TAGS}" >> $GITHUB_OUTPUT
+          echo "Additional tags: ${UNIQUE_TAGS}"
+
+      - name: Build and push multi-arch image
+        run: |
+          make push-multiarch \
+            REGISTRY=ghcr \
+            GITHUB_USER=${{ github.repository_owner }} \
+            GITHUB_REPO=atlantis \
+            BUILD_TARGET=${{ matrix.variant.target }} \
+            FILE=${{ matrix.variant.file }} \
+            TAG=${{ steps.compute-tag.outputs.base_tag }}${{ matrix.variant.tag_suffix }} \
+            ADDITIONAL_TAGS="${{ steps.prepare-tags.outputs.additional_tags }}"
+
+      - name: Generate job summary
+        run: |
+          echo "##  ${{ matrix.variant.description }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Primary tag:**" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "ghcr.io/${{ github.repository_owner }}/atlantis:${{ steps.compute-tag.outputs.base_tag }}${{ matrix.variant.tag_suffix }}" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Additional tags:**" >> $GITHUB_STEP_SUMMARY
+          for tag in ${{ steps.prepare-tags.outputs.additional_tags }}; do
+            echo "- \`ghcr.io/${{ github.repository_owner }}/atlantis:${tag}\`" >> $GITHUB_STEP_SUMMARY
+          done
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Build configuration:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Dockerfile: \`${{ matrix.variant.file }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Build target: \`${{ matrix.variant.target }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Architectures: \`linux/amd64\`, \`linux/arm64\`" >> $GITHUB_STEP_SUMMARY
+
+  push-readme:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    name: Push README to GHCR
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Push README to GHCR
+        uses: christian-korneck/update-container-description-action@v1
+        env:
+          DOCKER_USER: ${{ github.actor }}
+          DOCKER_PASS: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          destination_container_repo: ghcr.io/${{ github.repository_owner }}/atlantis
+          provider: ghcr
+          readme_file: README.md
+
+      - name: Summary
+        run: |
+          echo "## =� README Updated" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "README.md has been pushed to GHCR for \`ghcr.io/${{ github.repository_owner }}/atlantis\`" >> $GITHUB_STEP_SUMMARY

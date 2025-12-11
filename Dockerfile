@@ -46,9 +46,9 @@ WORKDIR /tmp
 RUN install_packages \
     ca-certificates \
     curl \
+    dumb-init \
     git \
-    unzip \
-    dumb-init
+    unzip
 
 # Download, verify and install atlantis
 RUN set -eu; \
@@ -98,14 +98,15 @@ RUN set -eu; \
     rm -f terragrunt-atlantis-config_${TERRAGRUNT_ATLANTIS_CONFIG_VERSION}_linux_${TARGETARCH} tac_checksums.txt
 
 # Set up the 'atlantis' user and adjust permissions
-RUN groupadd atlantis && \
-    useradd -r -g atlantis -d /home/atlantis -m atlantis && \
+RUN groupadd -g 1000 atlantis && \
+    useradd -u 100 -g atlantis -d /home/atlantis -m atlantis && \
     chown atlantis:root /home/atlantis/ && \
     chmod u+rwx /home/atlantis/
 
 EXPOSE 4141
 
 # Set the entry point to the atlantis user and run the atlantis command
+WORKDIR /home/atlantis
 USER atlantis
 ENTRYPOINT ["dumb-init", "--", "/usr/local/bin/atlantis"]
 CMD ["server"]
@@ -118,6 +119,7 @@ FROM no-awscli AS with-awscli
 
 # Switch back to root to install AWS CLI
 USER root
+WORKDIR /tmp
 
 # Add AWS CLI version
 ARG AWSCLI_VERSION
@@ -142,4 +144,5 @@ RUN set -eu; \
     rm -rf "awscli-exe-linux-${AWS_ARCH}-${AWSCLI_VERSION}.zip" aws
 
 # Switch back to atlantis user
+WORKDIR /home/atlantis
 USER atlantis

@@ -44,11 +44,13 @@ WORKDIR /tmp
 
 # Install all dependencies
 RUN apk add --no-cache \
+    bash \
     ca-certificates \
     curl \
+    dumb-init \
     git \
-    unzip \
-    dumb-init
+    shadow \
+    unzip
 
 # Download, verify and install atlantis
 RUN set -eu; \
@@ -98,14 +100,15 @@ RUN set -eu; \
     rm -f terragrunt-atlantis-config_${TERRAGRUNT_ATLANTIS_CONFIG_VERSION}_linux_${TARGETARCH} tac_checksums.txt
 
 # Set up the 'atlantis' user and adjust permissions
-RUN addgroup -S atlantis && \
-    adduser -S -G atlantis -h /home/atlantis atlantis && \
-    chown atlantis:atlantis /home/atlantis && \
-    chmod u+rwx /home/atlantis
+RUN groupadd -g 1000 atlantis && \
+    useradd -u 100 -g atlantis -d /home/atlantis -m atlantis && \
+    chown atlantis:root /home/atlantis/ && \
+    chmod u+rwx /home/atlantis/
 
 EXPOSE 4141
 
 # Set the entry point to the atlantis user and run the atlantis command
+WORKDIR /home/atlantis
 USER atlantis
 ENTRYPOINT ["dumb-init", "--", "/usr/local/bin/atlantis"]
 CMD ["server"]
