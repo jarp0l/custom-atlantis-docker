@@ -34,18 +34,18 @@ jobs:
             built_in_tags: "latest"
             description: "Debian-based (no AWS CLI)"
 
-          - name: awscli
+          - name: with-awscli
             file: Dockerfile
             target: with-awscli
             tag_suffix: "-awscli"
-            built_in_tags: "awscli"
+            built_in_tags: "latest"
             description: "Debian-based (with AWS CLI)"
 
           - name: alpine
             file: Dockerfile.alpine
             target: no-awscli
             tag_suffix: "-alpine"
-            built_in_tags: "alpine"
+            built_in_tags: "latest"
             description: "Alpine-based (no AWS CLI)"
 
     name: Build ${{ matrix.variant.name }}
