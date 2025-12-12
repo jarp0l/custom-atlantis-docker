@@ -70,7 +70,7 @@ jobs:
           if [ -n "${{ inputs.TAG }}" ]; then
             BASE_TAG="${{ inputs.TAG }}"
           else
-            ATLANTIS_VERSION=$(grep '^ATLANTIS_VERSION' Makefile | cut -d'=' -f2)
+            ATLANTIS_VERSION=$(grep '^ATLANTIS_VERSION' Makefile | cut -d'=' -f2 | tr -d ' ' | cut -d'?' -f2)
             GIT_SHA=$(git rev-parse --short=7 HEAD)
             BASE_TAG="${ATLANTIS_VERSION}-${GIT_SHA}"
           fi
